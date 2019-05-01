@@ -2,6 +2,7 @@ package com.elastic.barretta.analytics.rosette
 
 import groovy.json.JsonOutput
 import groovy.util.logging.Slf4j
+import wslite.http.HTTPClientException
 import wslite.rest.RESTClient
 import wslite.rest.RESTClientException
 
@@ -40,8 +41,13 @@ class RosetteApiClient {
                 }
                 returnList = response.json.entities.collect()
             }
-        } catch (e) {
+        } catch (RESTClientException e) {
             log.error("error fetching entities [$e.cause]")
+            if (e.response.statusCode == 429) {
+                log.info("retrying from failure...")
+                Thread.sleep(1000)
+                getEntities(text)
+            }
         }
         return returnList
     }
@@ -59,6 +65,10 @@ class RosetteApiClient {
             log.error("error getting sentiment [$e.cause]")
             if (e.response.statusCode == 400) {
                 log.error("detail [\n${JsonOutput.prettyPrint(new String(e.response.data))}\n]")
+            } else if (e.response.statusCode == 429) {
+                log.info("retrying from failure...")
+                Thread.sleep(1000)
+                getEntities(text)
             }
         }
         return returnMap
